@@ -1,0 +1,13 @@
+models/
+outputs/
+reports/
+mlflow_data/
+
+# Python
+__pycache__/
+*.pyc
+*.pkl
+.env
+
+
+*.csv

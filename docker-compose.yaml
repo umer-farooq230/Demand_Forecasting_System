@@ -1,0 +1,52 @@
+version: "3.9"
+
+# ── Demand Forecasting – Docker Compose ───────────────────────────────────────
+#
+# Services
+# ────────
+#   pipeline  – Runs full training + evaluation once, then exits.
+#   mlflow    – Persistent MLflow UI at http://localhost:5000
+#
+# Usage
+# ─────
+#   docker compose up --build            # build image, run pipeline, start UI
+#   docker compose up mlflow             # start UI only (after a pipeline run)
+#   docker compose run pipeline bash     # interactive shell for debugging
+
+services:
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: demand_forecasting_pipeline
+    command: python src/run_pipeline.py
+    volumes:
+      - ./data:/app/data:ro          # raw CSV (read-only inside container)
+      - ./models:/app/models         # persisted pipeline.pkl
+      - ./outputs:/app/outputs       # test_predictions.csv
+      - ./reports:/app/reports       # PNGs + pitch_dashboard.html
+      - ./mlflow_data:/app/mlflow_data  # MLflow experiment store
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlflow_data
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+  mlflow:
+    image: python:3.11-slim
+    container_name: demand_forecasting_mlflow
+    working_dir: /app
+    command: >
+      bash -c "pip install mlflow --quiet &&
+               mlflow ui
+               --backend-store-uri file:///app/mlflow_data
+               --host 0.0.0.0
+               --port 5000"
+    volumes:
+      - ./mlflow_data:/app/mlflow_data
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
